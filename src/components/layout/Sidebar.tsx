@@ -14,6 +14,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/authStore";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
@@ -32,6 +33,7 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const location = useLocation();
+  const { organization } = useAuthStore();
 
   return (
     <motion.aside
@@ -53,9 +55,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.2 }}
-                className="font-bold text-lg text-sidebar-foreground"
+                className="font-bold text-lg text-sidebar-foreground truncate max-w-[140px]"
               >
-                Commerce
+                {organization?.name || 'Commerce'}
               </motion.span>
             )}
           </AnimatePresence>

@@ -19,89 +19,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-
-const inventoryData = [
-  {
-    id: "PRD-001",
-    name: "iPhone 15 Pro Max",
-    sku: "IPH-15PM-256",
-    stock: 45,
-    reserved: 12,
-    available: 33,
-    reorderPoint: 20,
-    status: "healthy",
-  },
-  {
-    id: "PRD-002",
-    name: "MacBook Air M3",
-    sku: "MBA-M3-256",
-    stock: 23,
-    reserved: 5,
-    available: 18,
-    reorderPoint: 15,
-    status: "healthy",
-  },
-  {
-    id: "PRD-003",
-    name: "AirPods Pro",
-    sku: "APP-2ND-GEN",
-    stock: 120,
-    reserved: 25,
-    available: 95,
-    reorderPoint: 50,
-    status: "healthy",
-  },
-  {
-    id: "PRD-004",
-    name: "Apple Watch Ultra",
-    sku: "AWU-49MM",
-    stock: 5,
-    reserved: 3,
-    available: 2,
-    reorderPoint: 10,
-    status: "critical",
-  },
-  {
-    id: "PRD-005",
-    name: "iPad Pro 12.9\"",
-    sku: "IPP-129-M2",
-    stock: 0,
-    reserved: 0,
-    available: 0,
-    reorderPoint: 8,
-    status: "out_of_stock",
-  },
-  {
-    id: "PRD-006",
-    name: "Magic Keyboard",
-    sku: "MK-USB-C",
-    stock: 67,
-    reserved: 10,
-    available: 57,
-    reorderPoint: 30,
-    status: "healthy",
-  },
-  {
-    id: "PRD-007",
-    name: "HomePod Mini",
-    sku: "HPM-BLACK",
-    stock: 8,
-    reserved: 2,
-    available: 6,
-    reorderPoint: 15,
-    status: "low",
-  },
-  {
-    id: "PRD-008",
-    name: "Apple TV 4K",
-    sku: "ATV-4K-128",
-    stock: 3,
-    reserved: 1,
-    available: 2,
-    reorderPoint: 10,
-    status: "critical",
-  },
-];
+import { useQuery } from "@tanstack/react-query";
+import { productsApi } from "@/api/products.api";
+import { ordersApi } from "@/api/orders.api";
+import { Loader2 } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   healthy: { label: "Healthy", color: "text-success", icon: Package },
@@ -110,14 +31,37 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
   out_of_stock: { label: "Out of Stock", color: "text-destructive", icon: AlertTriangle },
 };
 
-const summaryCards = [
-  { title: "Total Products", value: 156, icon: Package, color: "bg-primary/10 text-primary" },
-  { title: "Low Stock Items", value: 12, icon: TrendingDown, color: "bg-warning/10 text-warning" },
-  { title: "Out of Stock", value: 3, icon: AlertTriangle, color: "bg-destructive/10 text-destructive" },
-  { title: "Pending Orders", value: 28, icon: RefreshCw, color: "bg-chart-3/10 text-chart-3" },
-];
+const getInventoryStatus = (quantity: number) => {
+  if (quantity === 0) return "out_of_stock";
+  if (quantity <= 5) return "critical";
+  if (quantity <= 15) return "low";
+  return "healthy";
+};
 
 const Inventory = () => {
+  const { data: productsData, isLoading: isLoadingProducts } = useQuery({
+    queryKey: ['inventory-products'],
+    queryFn: () => productsApi.getProducts({ limit: 100 })
+  });
+
+  const { data: ordersData, isLoading: isLoadingOrders } = useQuery({
+    queryKey: ['inventory-orders'],
+    queryFn: () => ordersApi.getOrders({ status: 'PENDING', limit: 1 })
+  });
+
+  const products = productsData?.data || [];
+  const totalProducts = productsData?.meta?.total || 0;
+  const pendingOrdersCount = ordersData?.meta?.total || 0;
+
+  const lowStockCount = products.filter(p => p.quantity > 0 && p.quantity <= 15).length;
+  const outOfStockCount = products.filter(p => p.quantity === 0).length;
+
+  const summaryCards = [
+    { title: "Total Products", value: totalProducts, icon: Package, color: "bg-primary/10 text-primary" },
+    { title: "Low Stock Items", value: lowStockCount, icon: TrendingDown, color: "bg-warning/10 text-warning" },
+    { title: "Out of Stock", value: outOfStockCount, icon: AlertTriangle, color: "bg-destructive/10 text-destructive" },
+    { title: "Pending Orders", value: pendingOrdersCount, icon: RefreshCw, color: "bg-chart-3/10 text-chart-3" },
+  ];
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -141,6 +85,12 @@ const Inventory = () => {
           </div>
         </div>
 
+        {isLoadingProducts || isLoadingOrders ? (
+          <div className="p-12 flex justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <>
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {summaryCards.map((card, index) => (
@@ -178,8 +128,7 @@ const Inventory = () => {
             <div>
               <h3 className="font-semibold text-foreground">Low Stock Alert</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                4 products are running low on stock. Consider restocking Apple Watch Ultra,
-                iPad Pro, HomePod Mini, and Apple TV 4K soon.
+                {lowStockCount + outOfStockCount} products are running low or out of stock. Consider restocking soon.
               </p>
             </div>
           </div>
@@ -211,12 +160,15 @@ const Inventory = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {inventoryData.map((item, index) => {
+              {products.map((item: any, index: number) => {
+                const available = item.quantity;
+                const reorderPoint = 15;
+                const status = getInventoryStatus(available);
                 const stockPercent =
-                  item.reorderPoint > 0
-                    ? Math.min((item.available / (item.reorderPoint * 2)) * 100, 100)
+                  reorderPoint > 0
+                    ? Math.min((available / (reorderPoint * 2)) * 100, 100)
                     : 0;
-                const statusInfo = statusConfig[item.status];
+                const statusInfo = statusConfig[status];
 
                 return (
                   <motion.tr
@@ -230,14 +182,14 @@ const Inventory = () => {
                       {item.name}
                     </TableCell>
                     <TableCell className="text-muted-foreground font-mono text-sm">
-                      {item.sku}
+                      {item.sku || `SKU-${item.id.slice(0, 4)}`}
                     </TableCell>
-                    <TableCell className="text-foreground">{item.stock}</TableCell>
+                    <TableCell className="text-foreground">{item.quantity}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {item.reserved}
+                      0
                     </TableCell>
                     <TableCell className="font-semibold text-foreground">
-                      {item.available}
+                      {available}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -255,12 +207,12 @@ const Inventory = () => {
                         variant="outline"
                         className={cn(
                           "gap-1",
-                          item.status === "healthy" &&
+                          status === "healthy" &&
                             "bg-success/10 text-success border-success/20",
-                          item.status === "low" &&
+                          status === "low" &&
                             "bg-warning/10 text-warning border-warning/20",
-                          (item.status === "critical" ||
-                            item.status === "out_of_stock") &&
+                          (status === "critical" ||
+                            status === "out_of_stock") &&
                             "bg-destructive/10 text-destructive border-destructive/20"
                         )}
                       >
@@ -274,6 +226,8 @@ const Inventory = () => {
             </TableBody>
           </Table>
         </motion.div>
+        </>
+        )}
       </div>
     </DashboardLayout>
   );

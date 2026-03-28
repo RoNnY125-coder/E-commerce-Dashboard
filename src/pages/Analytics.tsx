@@ -26,29 +26,10 @@ import {
   Cell,
 } from "recharts";
 import { cn } from "@/lib/utils";
-
-const monthlyData = [
-  { month: "Jan", revenue: 45000, orders: 420, customers: 156 },
-  { month: "Feb", revenue: 52000, orders: 480, customers: 189 },
-  { month: "Mar", revenue: 48000, orders: 440, customers: 167 },
-  { month: "Apr", revenue: 61000, orders: 560, customers: 234 },
-  { month: "May", revenue: 55000, orders: 510, customers: 198 },
-  { month: "Jun", revenue: 67000, orders: 620, customers: 267 },
-  { month: "Jul", revenue: 72000, orders: 680, customers: 289 },
-  { month: "Aug", revenue: 69000, orders: 650, customers: 276 },
-  { month: "Sep", revenue: 78000, orders: 720, customers: 312 },
-  { month: "Oct", revenue: 85000, orders: 790, customers: 345 },
-  { month: "Nov", revenue: 91000, orders: 850, customers: 378 },
-  { month: "Dec", revenue: 98000, orders: 920, customers: 412 },
-];
-
-const topProducts = [
-  { name: "iPhone 15 Pro", sales: 1250, revenue: 1498750 },
-  { name: "MacBook Air M3", sales: 890, revenue: 1155100 },
-  { name: "AirPods Pro", sales: 2100, revenue: 522900 },
-  { name: "iPad Pro", sales: 650, revenue: 714350 },
-  { name: "Apple Watch", sales: 980, revenue: 782220 },
-];
+import { Loader2 } from "lucide-react";
+import { useQuery } from '@tanstack/react-query';
+import { analyticsApi } from '@/api/analytics.api';
+import { useState } from "react";
 
 const trafficSources = [
   { name: "Organic Search", value: 35, color: "hsl(160, 84%, 39%)" },
@@ -56,13 +37,6 @@ const trafficSources = [
   { name: "Social Media", value: 20, color: "hsl(199, 89%, 48%)" },
   { name: "Email", value: 12, color: "hsl(280, 67%, 50%)" },
   { name: "Referral", value: 5, color: "hsl(340, 75%, 55%)" },
-];
-
-const metrics = [
-  { title: "Total Revenue", value: "$821,000", change: 12.5, icon: DollarSign, positive: true },
-  { title: "Total Orders", value: "7,340", change: 8.2, icon: ShoppingCart, positive: true },
-  { title: "Active Customers", value: "3,223", change: 15.3, icon: Users, positive: true },
-  { title: "Avg Order Value", value: "$112", change: -2.4, icon: Package, positive: false },
 ];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -83,6 +57,26 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const Analytics = () => {
+  const [dateRange, setDateRange] = useState("12months");
+
+  const { data: response, isLoading } = useQuery({
+    queryKey: ['analytics', dateRange],
+    queryFn: () => analyticsApi.getDashboard(dateRange)
+  });
+
+  const dashboardData = response?.data;
+  const overview = dashboardData?.overview;
+  
+  const metrics = [
+    { title: "Total Revenue", value: `$${overview?.totalRevenue?.toLocaleString() || "0"}`, change: 12.5, icon: DollarSign, positive: true },
+    { title: "Total Orders", value: (overview?.totalOrders || 0).toLocaleString(), change: 8.2, icon: ShoppingCart, positive: true },
+    { title: "Active Customers", value: (overview?.totalCustomers || 0).toLocaleString(), change: 15.3, icon: Users, positive: true },
+    { title: "Avg Order Value", value: `$${Math.round(overview?.avgOrderValue || 0).toLocaleString()}`, change: -2.4, icon: Package, positive: false },
+  ];
+
+  const monthlyData = dashboardData?.revenue || [];
+  const topProducts = dashboardData?.topProducts || [];
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -95,7 +89,7 @@ const Analytics = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <Select defaultValue="12months">
+            <Select value={dateRange} onValueChange={setDateRange}>
               <SelectTrigger className="w-40 bg-card">
                 <Calendar className="w-4 h-4 mr-2" />
                 <SelectValue />
@@ -114,6 +108,12 @@ const Analytics = () => {
           </div>
         </div>
 
+        {isLoading ? (
+          <div className="p-12 flex justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <>
         {/* Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {metrics.map((metric, index) => (
@@ -281,6 +281,8 @@ const Analytics = () => {
             </div>
           </motion.div>
         </div>
+        </>
+        )}
       </div>
     </DashboardLayout>
   );

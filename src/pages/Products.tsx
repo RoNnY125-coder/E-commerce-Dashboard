@@ -7,9 +7,14 @@ import {
   Edit2,
   Trash2,
   MoreVertical,
-  Grid,
   List,
+  Grid,
+  Loader2,
 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { productsApi } from '@/api/products.api';
+import { ProductModal } from "@/components/modals/ProductModal";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,89 +34,62 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-const products = [
-  {
-    id: "PRD-001",
-    name: "iPhone 15 Pro Max",
-    category: "Electronics",
-    price: 1199,
-    stock: 45,
-    status: "active",
-    image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=100&h=100&fit=crop",
-  },
-  {
-    id: "PRD-002",
-    name: "MacBook Air M3",
-    category: "Electronics",
-    price: 1299,
-    stock: 23,
-    status: "active",
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=100&h=100&fit=crop",
-  },
-  {
-    id: "PRD-003",
-    name: "AirPods Pro",
-    category: "Accessories",
-    price: 249,
-    stock: 120,
-    status: "active",
-    image: "https://images.unsplash.com/photo-1588423771073-b8903fbb85b5?w=100&h=100&fit=crop",
-  },
-  {
-    id: "PRD-004",
-    name: "Apple Watch Ultra",
-    category: "Wearables",
-    price: 799,
-    stock: 5,
-    status: "low_stock",
-    image: "https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=100&h=100&fit=crop",
-  },
-  {
-    id: "PRD-005",
-    name: "iPad Pro 12.9\"",
-    category: "Electronics",
-    price: 1099,
-    stock: 0,
-    status: "out_of_stock",
-    image: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=100&h=100&fit=crop",
-  },
-  {
-    id: "PRD-006",
-    name: "Magic Keyboard",
-    category: "Accessories",
-    price: 299,
-    stock: 67,
-    status: "active",
-    image: "https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=100&h=100&fit=crop",
-  },
-  {
-    id: "PRD-007",
-    name: "HomePod Mini",
-    category: "Smart Home",
-    price: 99,
-    stock: 89,
-    status: "active",
-    image: "https://images.unsplash.com/photo-1558089687-f282ffcbc126?w=100&h=100&fit=crop",
-  },
-  {
-    id: "PRD-008",
-    name: "Apple TV 4K",
-    category: "Smart Home",
-    price: 179,
-    stock: 3,
-    status: "low_stock",
-    image: "https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?w=100&h=100&fit=crop",
-  },
-];
-
 const statusStyles: Record<string, { label: string; className: string }> = {
   active: { label: "Active", className: "bg-success/10 text-success border-success/20" },
   low_stock: { label: "Low Stock", className: "bg-warning/10 text-warning border-warning/20" },
   out_of_stock: { label: "Out of Stock", className: "bg-destructive/10 text-destructive border-destructive/20" },
+  draft: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
+  archived: { label: "Archived", className: "bg-muted/50 text-muted-foreground/50 border-border" },
+};
+
+const getProductStatus = (p: any) => {
+  if (p.status !== 'ACTIVE') return p.status.toLowerCase();
+  if (p.quantity === 0) return 'out_of_stock';
+  if (p.quantity <= 5) return 'low_stock';
+  return 'active';
 };
 
 const Products = () => {
+  const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+
+  const { data: response, isLoading } = useQuery({
+    queryKey: ['products', searchTerm],
+    queryFn: () => productsApi.getProducts({ search: searchTerm || undefined })
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => productsApi.deleteProduct(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory-products'] });
+      toast.success("Product deleted successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to delete product");
+    }
+  });
+
+  const handleAddProduct = () => {
+    setSelectedProduct(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditProduct = (product: any) => {
+    setSelectedProduct(product);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteProduct = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this product?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const products = response?.data || [];
 
   return (
     <DashboardLayout>
@@ -122,7 +100,7 @@ const Products = () => {
             <h1 className="text-2xl font-bold text-foreground">Products</h1>
             <p className="text-muted-foreground">Manage your product catalog</p>
           </div>
-          <Button className="bg-primary hover:bg-primary/90">
+          <Button className="bg-primary hover:bg-primary/90" onClick={handleAddProduct}>
             <Plus className="w-4 h-4 mr-2" />
             Add Product
           </Button>
@@ -139,6 +117,8 @@ const Products = () => {
             <Input
               placeholder="Search products..."
               className="pl-10 bg-secondary border-0"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <div className="flex items-center gap-2">
@@ -159,6 +139,12 @@ const Products = () => {
           </div>
         </motion.div>
 
+        {isLoading ? (
+          <div className="p-12 flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <>
         {/* Products Table */}
         {viewMode === "list" ? (
           <motion.div
@@ -179,7 +165,9 @@ const Products = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {products.map((product, index) => (
+                {products.map((product: any, index: number) => {
+                  const currentStatus = getProductStatus(product);
+                  return (
                   <motion.tr
                     key={product.id}
                     initial={{ opacity: 0, x: -10 }}
@@ -189,49 +177,53 @@ const Products = () => {
                   >
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted">
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                          {product.images?.[0] ? (
+                            <img
+                              src={product.images[0]}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-xs text-muted-foreground p-1 text-center leading-tight">No image</span>
+                          )}
                         </div>
                         <div>
                           <p className="font-medium text-foreground">
                             {product.name}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {product.id}
+                            {product.sku || product.id}
                           </p>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="text-foreground">
-                      {product.category}
+                      {product.category?.name || 'Uncategorized'}
                     </TableCell>
                     <TableCell className="font-semibold text-foreground">
-                      ${product.price.toLocaleString()}
+                      ${Number(product.price).toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <span
                         className={cn(
                           "font-medium",
-                          product.stock === 0
+                          product.quantity === 0
                             ? "text-destructive"
-                            : product.stock <= 5
+                            : product.quantity <= 5
                             ? "text-warning"
                             : "text-foreground"
                         )}
                       >
-                        {product.stock} units
+                        {product.quantity} units
                       </span>
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant="outline"
-                        className={statusStyles[product.status].className}
+                        className={statusStyles[currentStatus]?.className || statusStyles.active.className}
                       >
-                        {statusStyles[product.status].label}
+                        {statusStyles[currentStatus]?.label || currentStatus}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -246,12 +238,15 @@ const Products = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditProduct(product)}>
                             <Edit2 className="w-4 h-4 mr-2" />
                             Edit Product
                           </DropdownMenuItem>
                           <DropdownMenuItem>Duplicate</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
+                          <DropdownMenuItem 
+                            className="text-destructive"
+                            onClick={() => handleDeleteProduct(product.id)}
+                          >
                             <Trash2 className="w-4 h-4 mr-2" />
                             Delete Product
                           </DropdownMenuItem>
@@ -259,7 +254,7 @@ const Products = () => {
                       </DropdownMenu>
                     </TableCell>
                   </motion.tr>
-                ))}
+                )})}
               </TableBody>
             </Table>
           </motion.div>
@@ -269,7 +264,9 @@ const Products = () => {
             animate={{ opacity: 1 }}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
           >
-            {products.map((product, index) => (
+            {products.map((product: any, index: number) => {
+              const currentStatus = getProductStatus(product);
+              return (
               <motion.div
                 key={product.id}
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -277,49 +274,61 @@ const Products = () => {
                 transition={{ delay: index * 0.05 }}
                 className="bg-card rounded-xl card-shadow overflow-hidden group hover:card-shadow-lg transition-all"
               >
-                <div className="aspect-square bg-muted overflow-hidden">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
+                <div className="aspect-square bg-muted overflow-hidden flex items-center justify-center">
+                  {product.images?.[0] ? (
+                    <img
+                      src={product.images[0]}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <span className="text-muted-foreground">No image</span>
+                  )}
                 </div>
                 <div className="p-4">
                   <Badge
                     variant="outline"
-                    className={cn("mb-2", statusStyles[product.status].className)}
+                    className={cn("mb-2", statusStyles[currentStatus]?.className)}
                   >
-                    {statusStyles[product.status].label}
+                    {statusStyles[currentStatus]?.label || currentStatus}
                   </Badge>
                   <h3 className="font-semibold text-foreground mb-1">
                     {product.name}
                   </h3>
                   <p className="text-sm text-muted-foreground mb-2">
-                    {product.category}
+                    {product.category?.name || 'Uncategorized'}
                   </p>
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold text-foreground">
-                      ${product.price}
+                      ${Number(product.price).toLocaleString()}
                     </span>
                     <span
                       className={cn(
                         "text-sm",
-                        product.stock === 0
+                        product.quantity === 0
                           ? "text-destructive"
-                          : product.stock <= 5
+                          : product.quantity <= 5
                           ? "text-warning"
                           : "text-muted-foreground"
                       )}
                     >
-                      {product.stock} in stock
+                      {product.quantity} in stock
                     </span>
                   </div>
                 </div>
               </motion.div>
-            ))}
+            )})}
           </motion.div>
         )}
+        </>
+        )}
       </div>
+
+      <ProductModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        product={selectedProduct}
+      />
     </DashboardLayout>
   );
 };

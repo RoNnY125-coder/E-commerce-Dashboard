@@ -1,75 +1,81 @@
-# 🛒 E-Commerce Admin Dashboard
+# 🛒 E-Commerce SaaS Dashboard
 
-A modern, responsive **E-Commerce Admin Dashboard** designed to visualize business performance, manage inventory, and track orders in real time.  
-This project focuses on clean UI, smooth UX, and scalable frontend architecture.
-
-> ⚠️ **Disclaimer:** This project is a **prototype/demo application** created for learning and portfolio purposes only.  
-> All data, analytics, users, and transactions are **dummy and non-functional**.
+A professional, full-stack **E-Commerce Admin Dashboard** designed to visualize business performance, manage inventory, and track orders in real time. 
+This project has been upgraded from a frontend prototype to a production-grade SaaS application with a dedicated Node.js/Express/PostgreSQL backend.
 
 ---
 
 ## ✨ Features
 
-- 📊 Real-time analytics dashboard
-- 💰 Revenue, sales, and growth insights
-- 📦 Inventory management with stock indicators
-- 🧾 Order tracking with status badges
-- 📈 Interactive charts and visual reports
-- 🎨 Clean, professional finance-inspired UI
-- 📱 Fully responsive (desktop, tablet, mobile)
-- ⚡ Smooth animations and micro-interactions
+- 🔐 **Secure Authentication:** JWT-based auth with persistence and protected routes.
+- 📊 **Real-time Analytics:** In-depth insights into revenue, sales, and customer growth.
+- 📦 **Inventory Management:** Dynamic stock tracking with automated status indicators.
+- 🧾 **Order Management:** Real-time order tracking and lifecycle management.
+- 📈 **Interactive Reports:** High-performance charting using Recharts.
+- 🎨 **Premium UI:** Finance-inspired design with smooth Framer Motion animations.
+- 📱 **Fully Responsive:** Optimized for desktop, tablet, and mobile viewing.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Frontend:** React  
-- **Styling:** Tailwind CSS  
-- **Charts & Analytics:** Chart.js  
-- **Backend / Auth (Prototype):** Supabase  
+- **Frontend:** React, TypeScript, Vite, Tailwind CSS, Shadcn UI
+- **State Management:** Zustand, TanStack Query (React Query)
+- **Backend:** Node.js, Express, Prisma ORM
+- **Database:** PostgreSQL (with Docker support)
+- **Cache:** Redis
+- **Cloud Storage:** Cloudinary (for product images)
 
 ---
 
 ## 🎨 Design Philosophy
 
-- Finance & money-inspired color palette (greens, neutrals, subtle gold accents)
-- Minimal, enterprise-grade UI
-- High readability and consistent spacing
-- Reusable components and clean layout structure
-- Subtle animations for a premium SaaS feel
-
----
-
-## 🔐 Authentication & Data Notice
-
-- All user accounts are **dummy/demo accounts**
-- No real authentication data is stored
-- No real payments, orders, or inventory exist
-- Charts and metrics use **mocked/sample data**
-- Supabase is used only for **prototype simulation**
-
----
-
-## 📦 Project Status
-
-- ✅ UI Complete
-- ✅ Responsive Design
-- ✅ Charts & Dashboard Views
-- 🚧 Backend logic is mocked
-- 🚧 Not intended for production use
+- **Vibrant & Premium:** Finance-inspired color palette (greens, neutrals, accent gold).
+- **Enterprise Grade:** Minimalist, high-readability layout.
+- **Micro-Interactions:** Subtle animations for a premium SaaS feel.
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v16 or above)
-- npm or yarn
+- Node.js (v18+)
+- Docker (for Database/Redis)
 
-### Installation
+### 🛠️ Backend Setup
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Setup environment variables (`.env`):
+   ```bash
+   cp .env.example .env
+   ```
+3. Spin up infrastructure:
+   ```bash
+   docker-compose up -d
+   ```
+4. Run migrations and seed data:
+   ```bash
+   npx prisma migrate dev
+   npx prisma db seed
+   ```
+5. Start the server:
+   ```bash
+   npm run dev
+   ```
 
-```bash
-git clone https://github.com/your-username/ecommerce-dashboard.git
-cd ecommerce-dashboard
-npm install
-npm run dev
+### 💻 Frontend Setup
+1. From the root directory:
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+---
+
+## 🔐 Deployment
+The project is architected for decoupled deployment:
+- **Frontend:** Vercel / Netlify
+- **Backend:** Heroku / Render / Railway
+- **Database:** Supabase PostgreSQL / Railway PostgreSQL

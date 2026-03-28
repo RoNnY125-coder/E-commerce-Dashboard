@@ -1,0 +1,325 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// ORGANIZATION & TENANCY
+// ----------------------------------------------------------------------------
+
+model Organization {
+  id            String    @id @default(uuid())
+  name          String
+  slug          String    @unique
+  logo_url      String?
+  plan          PlanType  @default(FREE)
+  billing_email String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  users         User[]
+  products      Product[]
+  customers     Customer[]
+  orders        Order[]
+  categories    Category[]
+  activity_logs ActivityLog[]
+  analytics     Analytics[]
+
+  @@map("organizations")
+}
+
+enum PlanType {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+// ----------------------------------------------------------------------------
+// USERS & AUTH
+// ----------------------------------------------------------------------------
+
+model User {
+  id                 String    @id @default(uuid())
+  organization_id    String
+  email              String    @unique
+  password_hash      String
+  name               String
+  avatar_url         String?
+  role               Role      @default(VIEWER)
+  is_email_verified  Boolean   @default(false)
+  
+  timezone           String    @default("UTC")
+  language           String    @default("en")
+  notification_prefs Json?     @db.JsonB // Stores preferences like { order_updates: true, low_stock: true }
+
+  last_login         DateTime?
+  login_count        Int       @default(0)
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+
+  organization       Organization   @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  sessions           Session[]
+  activity_logs      ActivityLog[]
+  notifications      Notification[]
+
+  @@map("users")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MANAGER
+  VIEWER
+}
+
+model Session {
+  id            String    @id @default(uuid())
+  user_id       String
+  refresh_token String    @unique // Hashed
+  ip_address    String?
+  user_agent    String?
+  expires_at    DateTime
+  created_at    DateTime  @default(now())
+  revoked_at    DateTime?
+
+  user          User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("sessions")
+}
+
+// ----------------------------------------------------------------------------
+// E-COMMERCE CORE
+// ----------------------------------------------------------------------------
+
+model Category {
+  id              String    @id @default(uuid())
+  organization_id String
+  name            String
+  slug            String
+  parent_id       String?
+  image_url       String?
+  sort_order      Int       @default(0)
+  is_active       Boolean   @default(true)
+  created_at      DateTime  @default(now())
+
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  parent          Category?    @relation("CategoryToCategory", fields: [parent_id], references: [id])
+  children        Category[]   @relation("CategoryToCategory")
+  products        Product[]
+
+  @@unique([organization_id, slug])
+  @@map("categories")
+}
+
+model Product {
+  id               String        @id @default(uuid())
+  organization_id  String
+  category_id      String?
+  
+  name             String
+  description      String?       @db.Text
+  sku              String
+  
+  price            Decimal       @db.Decimal(10, 2)
+  compare_at_price Decimal?      @db.Decimal(10, 2)
+  cost_per_item    Decimal?      @db.Decimal(10, 2)
+  
+  inventory_qty    Int           @default(0)
+  inventory_policy String        @default("deny") // 'deny' or 'continue' selling when out of stock
+  
+  status           ProductStatus @default(DRAFT)
+  images           Json?         @db.JsonB // Array of URLs
+  tags             Json?         @db.JsonB // Array of strings
+  weight           Decimal?      @db.Decimal(8, 2) // in kg
+  
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+
+  organization     Organization  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  category         Category?     @relation(fields: [category_id], references: [id])
+  order_items      OrderItem[]
+
+  @@unique([organization_id, sku])
+  @@index([organization_id, status])
+  @@map("products")
+}
+
+enum ProductStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+// ----------------------------------------------------------------------------
+// CUSTOMERS & SALES
+// ----------------------------------------------------------------------------
+
+model Customer {
+  id              String    @id @default(uuid())
+  organization_id String
+  email           String
+  name            String
+  phone           String?
+  avatar_url      String?
+  
+  total_spent     Decimal   @default(0) @db.Decimal(12, 2)
+  orders_count    Int       @default(0)
+  last_order_at   DateTime?
+  
+  address         Json?     @db.JsonB // Structured address object
+  tags            Json?     @db.JsonB
+  notes           String?   @db.Text
+  is_blocked      Boolean   @default(false)
+  
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  orders          Order[]
+
+  @@unique([organization_id, email])
+  @@map("customers")
+}
+
+model Order {
+  id               String        @id @default(uuid())
+  organization_id  String
+  customer_id      String
+  
+  order_number     Int           // Auto-incremented per org by app logic
+  
+  status           OrderStatus   @default(PENDING)
+  payment_status   PaymentStatus @default(PENDING)
+  payment_method   String?
+  
+  subtotal         Decimal       @db.Decimal(10, 2)
+  discount_amount  Decimal       @default(0) @db.Decimal(10, 2)
+  tax_amount       Decimal       @default(0) @db.Decimal(10, 2)
+  shipping_amount  Decimal       @default(0) @db.Decimal(10, 2)
+  total            Decimal       @db.Decimal(10, 2)
+  currency         String        @default("USD")
+  
+  shipping_address Json?         @db.JsonB
+  billing_address  Json?         @db.JsonB
+  notes            String?       @db.Text
+  
+  fulfilled_at     DateTime?
+  cancelled_at     DateTime?
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+
+  organization     Organization  @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  customer         Customer      @relation(fields: [customer_id], references: [id])
+  items            OrderItem[]
+
+  @@unique([organization_id, order_number])
+  @@index([organization_id, created_at])
+  @@index([organization_id, status])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model OrderItem {
+  id             String   @id @default(uuid())
+  order_id       String
+  product_id     String?  // Nullable in case product gets deleted
+  
+  product_name   String   // Snapshot
+  product_sku    String   // Snapshot
+  
+  quantity       Int
+  unit_price     Decimal  @db.Decimal(10, 2)
+  total_price    Decimal  @db.Decimal(10, 2)
+  
+  variant_info   Json?    @db.JsonB // Size, color, etc.
+
+  order          Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product        Product? @relation(fields: [product_id], references: [id], onDelete: SetNull)
+
+  @@index([order_id])
+  @@map("order_items")
+}
+
+// ----------------------------------------------------------------------------
+// LOGS & ANALYTICS
+// ----------------------------------------------------------------------------
+
+model Analytics {
+  id              String   @id @default(uuid())
+  organization_id String
+  date            DateTime @db.Date // Pre-aggregated by day
+  
+  metric_type     String   // e.g., "revenue", "orders", "new_customers"
+  metric_value    Decimal  @db.Decimal(12, 2)
+  dimension       Json?    @db.JsonB // e.g., { "source": "organic" }
+  
+  created_at      DateTime @default(now())
+
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+
+  @@index([organization_id, metric_type, date])
+  @@map("analytics")
+}
+
+model ActivityLog {
+  id              String   @id @default(uuid())
+  organization_id String
+  user_id         String?
+  
+  action          String   // e.g., "PRODUCT_CREATED", "ORDER_SHIPPED"
+  entity_type     String   // e.g., "Product", "Order"
+  entity_id       String
+  
+  old_values      Json?    @db.JsonB
+  new_values      Json?    @db.JsonB
+  
+  ip_address      String?
+  created_at      DateTime @default(now())
+
+  organization    Organization @relation(fields: [organization_id], references: [id], onDelete: Cascade)
+  user            User?        @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([organization_id, entity_type, entity_id])
+  @@map("activity_logs")
+}
+
+model Notification {
+  id         String   @id @default(uuid())
+  user_id    String
+  
+  type       String   // e.g., "ORDER_UPDATE", "LOW_STOCK"
+  title      String
+  message    String?  @db.Text
+  is_read    Boolean  @default(false)
+  link       String?
+  
+  created_at DateTime @default(now())
+
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, is_read])
+  @@map("notifications")
+}

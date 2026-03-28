@@ -12,58 +12,29 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-
-const orders = [
-  {
-    id: "#ORD-7892",
-    customer: { name: "John Doe", email: "john@example.com", avatar: "john" },
-    product: "iPhone 15 Pro Max",
-    amount: 1299,
-    status: "completed",
-    date: "Dec 20, 2024",
-  },
-  {
-    id: "#ORD-7891",
-    customer: { name: "Sarah Smith", email: "sarah@example.com", avatar: "sarah" },
-    product: "MacBook Air M3",
-    amount: 1499,
-    status: "processing",
-    date: "Dec 20, 2024",
-  },
-  {
-    id: "#ORD-7890",
-    customer: { name: "Mike Johnson", email: "mike@example.com", avatar: "mike" },
-    product: "AirPods Pro",
-    amount: 249,
-    status: "pending",
-    date: "Dec 19, 2024",
-  },
-  {
-    id: "#ORD-7889",
-    customer: { name: "Emily Brown", email: "emily@example.com", avatar: "emily" },
-    product: "iPad Pro 12.9\"",
-    amount: 1099,
-    status: "completed",
-    date: "Dec 19, 2024",
-  },
-  {
-    id: "#ORD-7888",
-    customer: { name: "David Wilson", email: "david@example.com", avatar: "david" },
-    product: "Apple Watch Ultra",
-    amount: 799,
-    status: "cancelled",
-    date: "Dec 18, 2024",
-  },
-];
+import { Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ordersApi } from "@/api/orders.api";
+import { Link } from "react-router-dom";
 
 const statusStyles: Record<string, string> = {
-  completed: "bg-success/10 text-success border-success/20",
-  processing: "bg-primary/10 text-primary border-primary/20",
-  pending: "bg-warning/10 text-warning border-warning/20",
-  cancelled: "bg-destructive/10 text-destructive border-destructive/20",
+  COMPLETED: "bg-success/10 text-success border-success/20",
+  PROCESSING: "bg-primary/10 text-primary border-primary/20",
+  PENDING: "bg-warning/10 text-warning border-warning/20",
+  DELIVERED: "bg-success/10 text-success border-success/20",
+  SHIPPED: "bg-primary/10 text-primary border-primary/20",
+  CANCELLED: "bg-destructive/10 text-destructive border-destructive/20",
+  REFUNDED: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 export function RecentOrders() {
+  const { data: response, isLoading } = useQuery({
+    queryKey: ['recent-orders'],
+    queryFn: () => ordersApi.getOrders({ limit: 5 })
+  });
+
+  const orders = response?.data || [];
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -77,13 +48,18 @@ export function RecentOrders() {
             <h3 className="text-lg font-semibold text-foreground">Recent Orders</h3>
             <p className="text-sm text-muted-foreground">Latest customer transactions</p>
           </div>
-          <Button variant="outline" size="sm">
-            View All
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/orders">View All</Link>
           </Button>
         </div>
       </div>
 
-      <Table>
+      {isLoading ? (
+        <div className="p-8 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             <TableHead className="text-muted-foreground">Order</TableHead>
@@ -96,7 +72,7 @@ export function RecentOrders() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {orders.map((order, index) => (
+          {orders.map((order: any, index: number) => (
             <motion.tr
               key={order.id}
               initial={{ opacity: 0, x: -10 }}
@@ -104,17 +80,17 @@ export function RecentOrders() {
               transition={{ delay: 0.8 + index * 0.05 }}
               className="group hover:bg-muted/50 transition-colors"
             >
-              <TableCell className="font-medium text-foreground">{order.id}</TableCell>
+              <TableCell className="font-medium text-foreground">#{order.order_number}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-8 w-8">
                     <AvatarImage
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${order.customer.avatar}`}
+                      src={order.customer.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${order.customer.name}`}
                     />
                     <AvatarFallback>
                       {order.customer.name
                         .split(" ")
-                        .map((n) => n[0])
+                        .map((n: string) => n[0])
                         .join("")}
                     </AvatarFallback>
                   </Avatar>
@@ -128,9 +104,9 @@ export function RecentOrders() {
                   </div>
                 </div>
               </TableCell>
-              <TableCell className="text-foreground">{order.product}</TableCell>
+              <TableCell className="text-foreground">{order.items?.[0]?.product_name || 'N/A'}</TableCell>
               <TableCell className="font-semibold text-foreground">
-                ${order.amount.toLocaleString()}
+                ${Number(order.total).toLocaleString()}
               </TableCell>
               <TableCell>
                 <Badge
@@ -140,20 +116,26 @@ export function RecentOrders() {
                   {order.status}
                 </Badge>
               </TableCell>
-              <TableCell className="text-muted-foreground">{order.date}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {new Date(order.created_at).toLocaleDateString()}
+              </TableCell>
               <TableCell>
                 <Button
                   variant="ghost"
                   size="icon"
                   className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  asChild
                 >
-                  <Eye className="w-4 h-4" />
+                  <Link to="/orders">
+                    <Eye className="w-4 h-4" />
+                  </Link>
                 </Button>
               </TableCell>
             </motion.tr>
           ))}
         </TableBody>
       </Table>
+      )}
     </motion.div>
   );
 }

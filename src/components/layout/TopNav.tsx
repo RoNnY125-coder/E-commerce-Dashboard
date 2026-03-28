@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuthStore } from "@/store/authStore";
+import { useNavigate } from "react-router-dom";
 
 interface TopNavProps {
   sidebarCollapsed: boolean;
@@ -20,6 +22,13 @@ interface TopNavProps {
 
 export function TopNav({ sidebarCollapsed }: TopNavProps) {
   const [searchFocused, setSearchFocused] = useState(false);
+  const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <motion.header
@@ -83,12 +92,12 @@ export function TopNav({ sidebarCollapsed }: TopNavProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-2">
               <Avatar className="h-8 w-8">
-                <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=admin" />
-                <AvatarFallback>AD</AvatarFallback>
+                <AvatarImage src={user?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || 'User'}`} />
+                <AvatarFallback>{user?.name?.substring(0, 2).toUpperCase() || 'AD'}</AvatarFallback>
               </Avatar>
               <div className="hidden md:flex flex-col items-start">
-                <span className="text-sm font-medium">Admin User</span>
-                <span className="text-xs text-muted-foreground">admin@store.com</span>
+                <span className="text-sm font-medium">{user?.name || 'Admin User'}</span>
+                <span className="text-xs text-muted-foreground">{user?.email || 'admin@store.com'}</span>
               </div>
               <ChevronDown className="w-4 h-4 text-muted-foreground hidden md:block" />
             </Button>
@@ -109,7 +118,7 @@ export function TopNav({ sidebarCollapsed }: TopNavProps) {
               Help & Support
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem className="text-destructive" onClick={handleLogout} style={{ cursor: 'pointer' }}>
               <LogOut className="mr-2 h-4 w-4" />
               Log out
             </DropdownMenuItem>

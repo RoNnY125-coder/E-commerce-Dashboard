@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Search, Mail, MoreVertical, UserPlus } from "lucide-react";
+import { Search, Mail, MoreVertical, UserPlus, Trash2, Edit2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,77 +20,60 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-
-const customers = [
-  {
-    id: "CUS-001",
-    name: "John Doe",
-    email: "john@example.com",
-    avatar: "john",
-    orders: 15,
-    spent: 12450,
-    status: "active",
-    joined: "Jan 15, 2024",
-  },
-  {
-    id: "CUS-002",
-    name: "Sarah Smith",
-    email: "sarah@example.com",
-    avatar: "sarah",
-    orders: 23,
-    spent: 18920,
-    status: "active",
-    joined: "Feb 3, 2024",
-  },
-  {
-    id: "CUS-003",
-    name: "Mike Johnson",
-    email: "mike@example.com",
-    avatar: "mike",
-    orders: 8,
-    spent: 3450,
-    status: "active",
-    joined: "Mar 12, 2024",
-  },
-  {
-    id: "CUS-004",
-    name: "Emily Brown",
-    email: "emily@example.com",
-    avatar: "emily",
-    orders: 31,
-    spent: 24780,
-    status: "vip",
-    joined: "Nov 20, 2023",
-  },
-  {
-    id: "CUS-005",
-    name: "David Wilson",
-    email: "david@example.com",
-    avatar: "david",
-    orders: 2,
-    spent: 899,
-    status: "inactive",
-    joined: "Dec 5, 2024",
-  },
-  {
-    id: "CUS-006",
-    name: "Lisa Anderson",
-    email: "lisa@example.com",
-    avatar: "lisa",
-    orders: 19,
-    spent: 15670,
-    status: "active",
-    joined: "Apr 8, 2024",
-  },
-];
+import { Loader2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { customersApi } from '@/api/customers.api';
+import { CustomerModal } from "@/components/modals/CustomerModal";
+import { toast } from "sonner";
+import { useState } from "react";
 
 const statusStyles: Record<string, string> = {
-  active: "bg-success/10 text-success border-success/20",
-  vip: "bg-accent/20 text-accent-foreground border-accent/40",
-  inactive: "bg-muted text-muted-foreground border-border",
+
+  ACTIVE: "bg-success/10 text-success border-success/20",
+  VIP: "bg-accent/20 text-accent-foreground border-accent/40",
+  INACTIVE: "bg-muted text-muted-foreground border-border",
 };
 
 const Customers = () => {
+  const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+
+  const { data: response, isLoading } = useQuery({
+    queryKey: ['customers', searchTerm],
+    queryFn: () => customersApi.getCustomers({ search: searchTerm || undefined })
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => customersApi.deleteCustomer(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customers'] });
+      toast.success("Customer deleted successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to delete customer");
+    }
+  });
+
+  const handleAddCustomer = () => {
+    setSelectedCustomer(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditCustomer = (customer: any) => {
+    setSelectedCustomer(customer);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteCustomer = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this customer?")) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  const customers = response?.data || [];
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -100,7 +83,7 @@ const Customers = () => {
             <h1 className="text-2xl font-bold text-foreground">Customers</h1>
             <p className="text-muted-foreground">Manage your customer base</p>
           </div>
-          <Button className="bg-primary hover:bg-primary/90">
+          <Button className="bg-primary hover:bg-primary/90" onClick={handleAddCustomer}>
             <UserPlus className="w-4 h-4 mr-2" />
             Add Customer
           </Button>
@@ -117,10 +100,18 @@ const Customers = () => {
             <Input
               placeholder="Search customers..."
               className="pl-10 bg-secondary border-0"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </motion.div>
 
+        {isLoading ? (
+          <div className="p-12 flex justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <>
         {/* Customers Table */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -140,7 +131,7 @@ const Customers = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {customers.map((customer, index) => (
+              {customers.map((customer: any, index: number) => (
                 <motion.tr
                   key={customer.id}
                   initial={{ opacity: 0, x: -10 }}
@@ -152,12 +143,12 @@ const Customers = () => {
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
                         <AvatarImage
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${customer.avatar}`}
+                          src={customer.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${customer.name}`}
                         />
                         <AvatarFallback>
                           {customer.name
                             .split(" ")
-                            .map((n) => n[0])
+                            .map((n: string) => n[0])
                             .join("")}
                         </AvatarFallback>
                       </Avatar>
@@ -171,9 +162,9 @@ const Customers = () => {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-foreground">{customer.orders}</TableCell>
+                  <TableCell className="text-foreground">{customer._count?.orders || 0}</TableCell>
                   <TableCell className="font-semibold text-foreground">
-                    ${customer.spent.toLocaleString()}
+                    ${Number(customer.totalSpent || 0).toLocaleString()}
                   </TableCell>
                   <TableCell>
                     <Badge
@@ -184,7 +175,7 @@ const Customers = () => {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {customer.joined}
+                    {new Date(customer.created_at).toLocaleDateString()}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -198,12 +189,22 @@ const Customers = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>View Profile</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditCustomer(customer)}>
+                          <Edit2 className="w-4 h-4 mr-2" />
+                          Edit Profile
+                        </DropdownMenuItem>
                         <DropdownMenuItem>
                           <Mail className="w-4 h-4 mr-2" />
                           Send Email
                         </DropdownMenuItem>
                         <DropdownMenuItem>View Orders</DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={() => handleDeleteCustomer(customer.id)}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Customer
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -212,7 +213,15 @@ const Customers = () => {
             </TableBody>
           </Table>
         </motion.div>
+        </>
+        )}
       </div>
+
+      <CustomerModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        customer={selectedCustomer}
+      />
     </DashboardLayout>
   );
 };

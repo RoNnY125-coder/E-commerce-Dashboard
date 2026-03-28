@@ -11,20 +11,9 @@ import {
   AreaChart,
 } from "recharts";
 
-const data = [
-  { month: "Jan", revenue: 45000, profit: 12000 },
-  { month: "Feb", revenue: 52000, profit: 15000 },
-  { month: "Mar", revenue: 48000, profit: 13500 },
-  { month: "Apr", revenue: 61000, profit: 18000 },
-  { month: "May", revenue: 55000, profit: 16000 },
-  { month: "Jun", revenue: 67000, profit: 21000 },
-  { month: "Jul", revenue: 72000, profit: 24000 },
-  { month: "Aug", revenue: 69000, profit: 22500 },
-  { month: "Sep", revenue: 78000, profit: 26000 },
-  { month: "Oct", revenue: 85000, profit: 29000 },
-  { month: "Nov", revenue: 91000, profit: 32000 },
-  { month: "Dec", revenue: 98000, profit: 35000 },
-];
+import { useQuery } from '@tanstack/react-query';
+import { analyticsApi } from '@/api/analytics.api';
+import { Loader2 } from 'lucide-react';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -43,6 +32,13 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export function RevenueChart() {
+  const { data: response, isLoading } = useQuery({
+    queryKey: ['dashboard-revenue', '12months'],
+    queryFn: () => analyticsApi.getDashboard('12months') // The entire dashboard returns revenue array 
+  });
+
+  const data = response?.data?.revenue || [];
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -68,50 +64,56 @@ export function RevenueChart() {
       </div>
 
       <div className="h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(160, 84%, 39%)" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(160, 84%, 39%)" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis
-              dataKey="month"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-              tickFormatter={(value) => `$${value / 1000}k`}
-            />
-            <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="revenue"
-              stroke="hsl(160, 84%, 39%)"
-              strokeWidth={2}
-              fill="url(#revenueGradient)"
-              name="Revenue"
-            />
-            <Area
-              type="monotone"
-              dataKey="profit"
-              stroke="hsl(45, 93%, 47%)"
-              strokeWidth={2}
-              fill="url(#profitGradient)"
-              name="Profit"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        {isLoading ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data}>
+              <defs>
+                <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(160, 84%, 39%)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(160, 84%, 39%)" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="hsl(45, 93%, 47%)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis
+                dataKey="month"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                tickFormatter={(value) => `$${value / 1000}k`}
+              />
+              <Tooltip content={<CustomTooltip />} />
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                stroke="hsl(160, 84%, 39%)"
+                strokeWidth={2}
+                fill="url(#revenueGradient)"
+                name="Revenue"
+              />
+              <Area
+                type="monotone"
+                dataKey="profit"
+                stroke="hsl(45, 93%, 47%)"
+                strokeWidth={2}
+                fill="url(#profitGradient)"
+                name="Profit"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </motion.div>
   );

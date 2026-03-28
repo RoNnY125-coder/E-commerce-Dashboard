@@ -7,6 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuthStore } from "@/store/authStore";
+import { useQuery } from "@tanstack/react-query";
+import { organizationApi } from "@/api/organization.api";
 import {
   Tabs,
   TabsContent,
@@ -15,6 +18,19 @@ import {
 } from "@/components/ui/tabs";
 
 const Settings = () => {
+  const user = useAuthStore(state => state.user);
+  
+  const { data: orgData } = useQuery({
+    queryKey: ['organization'],
+    queryFn: () => organizationApi.getOrgInfo()
+  });
+
+  const org = orgData?.data;
+
+  // Split name for simple form usage
+  const [firstName, ...lastNames] = (user?.name || "").split(" ");
+  const lastName = lastNames.join(" ");
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -62,8 +78,8 @@ const Settings = () => {
 
               <div className="flex items-center gap-6">
                 <Avatar className="w-20 h-20">
-                  <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=admin" />
-                  <AvatarFallback>AD</AvatarFallback>
+                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.name || 'admin'}`} />
+                  <AvatarFallback>{(user?.name || 'AD').substring(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div className="space-y-2">
                   <Button variant="outline">Change Photo</Button>
@@ -78,15 +94,15 @@ const Settings = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input id="firstName" defaultValue="Admin" className="bg-secondary border-0" />
+                  <Input id="firstName" defaultValue={firstName} className="bg-secondary border-0" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="lastName">Last Name</Label>
-                  <Input id="lastName" defaultValue="User" className="bg-secondary border-0" />
+                  <Input id="lastName" defaultValue={lastName} className="bg-secondary border-0" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" defaultValue="admin@store.com" className="bg-secondary border-0" />
+                  <Input id="email" type="email" defaultValue={user?.email || ""} className="bg-secondary border-0" disabled />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>
@@ -201,11 +217,11 @@ const Settings = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="storeName">Store Name</Label>
-                  <Input id="storeName" defaultValue="Commerce Pro" className="bg-secondary border-0" />
+                  <Input id="storeName" defaultValue={org?.name || "Commerce Pro"} className="bg-secondary border-0" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="storeUrl">Store URL</Label>
-                  <Input id="storeUrl" defaultValue="commerce-pro.store" className="bg-secondary border-0" />
+                  <Input id="storeUrl" defaultValue={org?.slug ? `${org.slug}.store` : ""} className="bg-secondary border-0" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="currency">Currency</Label>
