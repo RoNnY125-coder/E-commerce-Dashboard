@@ -2,7 +2,7 @@ import { prisma } from '../server';
 import { Prisma } from '@prisma/client';
 
 export class UserRepository {
-  async create(data: Prisma.UserCreateInput) {
+  async create(data: Prisma.UserUncheckedCreateInput) {
     return prisma.user.create({ data });
   }
 

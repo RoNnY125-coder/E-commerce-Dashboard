@@ -4,10 +4,15 @@ import { validate } from '../middleware/validation';
 import { sendSuccess } from '../utils/response';
 import { requireAuth } from '../middleware/auth';
 import { authRateLimiter } from '../middleware/rateLimiter';
+import { verifyRefreshToken, signAccessToken } from '../utils/jwt';
+import { UserRepository } from '../repositories/user.repository';
+import { OrganizationRepository } from '../repositories/organization.repository';
 import { z } from 'zod';
 
 const router = Router();
 const authService = new AuthService();
+const userRepo = new UserRepository();
+const orgRepo = new OrganizationRepository();
 
 // Validation Schemas
 const registerSchema = z.object({
@@ -78,4 +83,53 @@ router.post('/logout', requireAuth, async (req, res, next) => {
   }
 });
 
+// GET /me — Return current authenticated user + org
+router.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    const user = await userRepo.findById(req.user!.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: { message: 'User not found' } });
+    }
+
+    const { password_hash, organization, ...userWithoutPassword } = user as any;
+
+    sendSuccess(res, 200, {
+      data: {
+        user: userWithoutPassword,
+        org: organization,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /refresh — Use httpOnly refresh token cookie to issue a new access token
+router.post('/refresh', async (req, res, next) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) {
+      return res.status(401).json({ success: false, error: { message: 'No refresh token provided' } });
+    }
+
+    const decoded = verifyRefreshToken(refreshToken);
+    const user = await userRepo.findById(decoded.userId);
+    if (!user) {
+      return res.status(401).json({ success: false, error: { message: 'User not found' } });
+    }
+
+    const org = await orgRepo.findById(user.organization_id);
+    if (!org) {
+      return res.status(401).json({ success: false, error: { message: 'Organization not found' } });
+    }
+
+    const newAccessToken = signAccessToken(user, org);
+
+    sendSuccess(res, 200, { data: { accessToken: newAccessToken } });
+  } catch (error) {
+    return res.status(401).json({ success: false, error: { message: 'Invalid or expired refresh token' } });
+  }
+});
+
 export default router;
+

@@ -1,9 +1,9 @@
 import { UserRepository } from '../repositories/user.repository';
-import { SessionRepository } from '../session.repository';
-import { OrganizationRepository } from '../organization.repository';
-import { hashPassword, comparePassword } from '../../utils/password';
-import { signAccessToken, signRefreshToken } from '../../utils/jwt';
-import { CustomError } from '../../middleware/errorHandler';
+import { SessionRepository } from '../repositories/session.repository';
+import { OrganizationRepository } from '../repositories/organization.repository';
+import { hashPassword, comparePassword } from '../utils/password';
+import { signAccessToken, signRefreshToken } from '../utils/jwt';
+import { CustomError } from '../middleware/errorHandler';
 
 const userRepo = new UserRepository();
 const sessionRepo = new SessionRepository();
