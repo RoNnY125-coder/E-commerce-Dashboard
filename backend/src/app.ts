@@ -22,9 +22,12 @@ const app = express();
 app.use(helmet());
 
 // CORS configuration (allow frontend origin)
-const origin = process.env.FRONTEND_URL || 'http://localhost:5173';
+const origins = process.env.FRONTEND_URL 
+  ? process.env.FRONTEND_URL.split(',') 
+  : ['http://localhost:5173', 'http://localhost:8080'];
+
 app.use(cors({
-  origin: origin,
+  origin: origins,
   credentials: true, // Required for cookies (refresh token)
 }));
 
