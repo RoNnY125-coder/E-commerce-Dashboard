@@ -23,12 +23,17 @@ app.use(helmet());
 
 // CORS configuration (allow frontend origin)
 const origins = process.env.FRONTEND_URL 
-  ? process.env.FRONTEND_URL.split(',') 
+  ? process.env.FRONTEND_URL.split(',').map(o => o.trim())
   : ['http://localhost:5173', 'http://localhost:8080'];
 
 app.use(cors({
-  origin: origins,
-  credentials: true, // Required for cookies (refresh token)
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (origins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
 }));
 
 // Parsers
