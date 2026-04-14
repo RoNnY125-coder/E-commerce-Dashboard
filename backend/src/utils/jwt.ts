@@ -14,7 +14,7 @@ export const signAccessToken = (user: User, org: Organization): string => {
     role: user.role,
   };
   return jwt.sign(payload, process.env.JWT_ACCESS_SECRET!, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
+    expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '15m') as any,
   });
 };
 
@@ -25,7 +25,7 @@ export const signRefreshToken = (user: User, org: Organization): string => {
     role: user.role,
   };
   return jwt.sign(payload, process.env.JWT_REFRESH_SECRET!, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+    expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN || '7d') as any,
   });
 };
 
