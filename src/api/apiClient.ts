@@ -33,7 +33,8 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
     
     // Check if error is 401 and we haven't already retried
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const isAuthRoute = originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh') || originalRequest.url?.includes('/auth/logout');
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthRoute) {
       originalRequest._retry = true;
 
       try {
