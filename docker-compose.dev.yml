@@ -3,14 +3,14 @@ version: '3.9'
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: ecommerce_postgres
+    container_name: ecommerce_postgres_dev
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: ecommerce_dashboard
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_dev_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
@@ -19,16 +19,16 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - ecommerce_net
+      - ecommerce_dev_net
 
   redis:
     image: redis:7-alpine
-    container_name: ecommerce_redis
+    container_name: ecommerce_redis_dev
     restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - redis_dev_data:/data
     command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -36,13 +36,13 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - ecommerce_net
+      - ecommerce_dev_net
 
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-    container_name: ecommerce_backend
+      dockerfile: Dockerfile.dev
+    container_name: ecommerce_backend_dev
     restart: unless-stopped
     depends_on:
       postgres:
@@ -54,32 +54,36 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ecommerce_dashboard
       REDIS_URL: redis://redis:6379
-      NODE_ENV: production
-      FRONTEND_URL: http://localhost:8080,http://frontend:8080
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/prisma:/app/prisma
     ports:
       - "3001:3001"
     networks:
-      - ecommerce_net
+      - ecommerce_dev_net
 
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: ecommerce_frontend
+      dockerfile: Dockerfile.dev
+    container_name: ecommerce_frontend_dev
     restart: unless-stopped
     depends_on:
       - backend
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
     environment:
       VITE_BACKEND_URL: http://backend:3001
     ports:
       - "8080:8080"
     networks:
-      - ecommerce_net
+      - ecommerce_dev_net
 
 volumes:
-  postgres_data:
-  redis_data:
+  postgres_dev_data:
+  redis_dev_data:
 
 networks:
-  ecommerce_net:
+  ecommerce_dev_net:
     driver: bridge
